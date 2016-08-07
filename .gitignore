@@ -2,6 +2,9 @@
 *.exe
 twitch-lastmsg
 
+# Config files
+config.json
+
 #################
 ## Eclipse
 #################
