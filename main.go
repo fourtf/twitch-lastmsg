@@ -167,7 +167,6 @@ func writeMessagesSince(w http.ResponseWriter, c *Channel, lastMessage *time.Tim
 
 func lastMessages(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(r.URL.String(), "/")
-	fmt.Printf("%#v\n", parts)
 	var channelName string
 	if len(parts) < 3 {
 		return
@@ -189,7 +188,6 @@ func lastMessages(w http.ResponseWriter, r *http.Request) {
 
 func lastMessagesWithTime(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(r.URL.String(), "/")
-	fmt.Printf("%#v\n", parts)
 	var channelName string
 	var lastMessage *time.Time
 	if len(parts) < 3 {
