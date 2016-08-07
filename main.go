@@ -132,18 +132,18 @@ func handleMessage(msg string) {
 		if success {
 			_msg := "@timestamp-utc=" + time.Now().UTC().Format("20060102-150405") + ";" + msg[1:]
 
-			c.mu.Lock()
-			c.Messages[(c.MessageIndex+c.MessageCount+1)%len(c.Messages)] = _msg
-			if c.MessageCount == len(c.Messages) {
-				c.MessageIndex++
-			} else {
-				c.MessageCount++
-			}
-
-			c.mu.Unlock()
+			c.AddMessage(_msg)
 		}
 
 		fmt.Println("cannel message")
+	}
+}
+
+func writeLastMessages(w http.ResponseWriter, c *Channel) {
+	messages, messageCount, messageIndex := c.GetLastMessages()
+
+	for index := 1; index <= messageCount; index++ {
+		w.Write([]byte(messages[(messageIndex+index)%len(messages)]))
 	}
 }
 
@@ -155,16 +155,7 @@ func lastmessages(w http.ResponseWriter, r *http.Request) {
 		c, success := channels[strings.ToLower(S[2])]
 		channelMutex.Unlock()
 		if success {
-			c.mu.Lock()
-			messages := make([]string, len(c.Messages))
-			messageCount := c.MessageCount
-			messageIndex := c.MessageIndex
-			copy(messages, c.Messages)
-			c.mu.Unlock()
-
-			for index := 1; index <= messageCount; index++ {
-				w.Write([]byte(messages[(messageIndex+index)%len(messages)]))
-			}
+			writeLastMessages(w, c)
 		}
 	}
 }
