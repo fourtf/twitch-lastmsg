@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+const dateFormat = "20060102-150405"
+
 var (
 	channels     = make(map[string]*Channel)
 	channelMutex = &sync.Mutex{}
@@ -59,7 +61,7 @@ func main() {
 		}
 	}()
 
-	http.HandleFunc("/lastmessages/", lastmessages)
+	http.HandleFunc("/lastmessages/", lastMessages)
 	http.ListenAndServe(":"+strconv.Itoa(settings.HTTPServePort), nil)
 }
 
@@ -130,32 +132,90 @@ func handleMessage(msg string) {
 		channelMutex.Unlock()
 
 		if success {
-			_msg := "@timestamp-utc=" + time.Now().UTC().Format("20060102-150405") + ";" + msg[1:]
+			_msg := "@timestamp-utc=" + time.Now().UTC().Format(dateFormat) + ";" + msg[1:]
 
 			c.AddMessage(_msg)
+			fmt.Printf("+ Added message for channel %s\n", c.Name)
 		}
-
-		fmt.Println("cannel message")
 	}
 }
 
 func writeLastMessages(w http.ResponseWriter, c *Channel) {
 	messages, messageCount, messageIndex := c.GetLastMessages()
 
+	fmt.Printf("+ Writing %d last messages for %s\n", messageCount, c.Name)
+
 	for index := 1; index <= messageCount; index++ {
 		w.Write([]byte(messages[(messageIndex+index)%len(messages)]))
 	}
 }
 
-func lastmessages(w http.ResponseWriter, r *http.Request) {
-	S := strings.Split(r.URL.String(), "/")
-	if len(S) > 2 {
-		fmt.Println(S[2])
-		channelMutex.Lock()
-		c, success := channels[strings.ToLower(S[2])]
-		channelMutex.Unlock()
-		if success {
-			writeLastMessages(w, c)
+func writeMessagesSince(w http.ResponseWriter, c *Channel, lastMessage *time.Time) {
+	messages, messageCount, messageIndex := c.GetLastMessages()
+
+	fmt.Printf("@ Writing messages since %s for %s\n", lastMessage, c.Name)
+
+	for index := 1; index <= messageCount; index++ {
+		msg := messages[(messageIndex+index)%len(messages)]
+		// KKaper
+		t, _ := time.Parse(dateFormat, msg[15:30])
+		if lastMessage.Before(t) {
+			w.Write([]byte(msg))
 		}
+	}
+}
+
+func lastMessages(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(r.URL.String(), "/")
+	fmt.Printf("%#v\n", parts)
+	var channelName string
+	if len(parts) < 3 {
+		return
+	}
+
+	channelName = strings.ToLower(parts[2])
+
+	channelMutex.Lock()
+	c, success := channels[channelName]
+	channelMutex.Unlock()
+
+	if !success {
+		w.Write([]byte("Channel does not exist"))
+		return
+	}
+
+	writeLastMessages(w, c)
+}
+
+func lastMessagesWithTime(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(r.URL.String(), "/")
+	fmt.Printf("%#v\n", parts)
+	var channelName string
+	var lastMessage *time.Time
+	if len(parts) < 3 {
+		return
+	}
+
+	channelName = strings.ToLower(parts[2])
+	if len(parts) >= 4 {
+		t, err := time.Parse(dateFormat, parts[3])
+		if err == nil {
+			lastMessage = &t
+		}
+	}
+
+	channelMutex.Lock()
+	c, success := channels[channelName]
+	channelMutex.Unlock()
+
+	if !success {
+		w.Write([]byte("Channel does not exist"))
+		return
+	}
+
+	if lastMessage == nil {
+		writeLastMessages(w, c)
+	} else {
+		writeMessagesSince(w, c, lastMessage)
 	}
 }
