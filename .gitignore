@@ -1,4 +1,6 @@
+# Binaries
 *.exe
+twitch-lastmsg
 
 #################
 ## Eclipse
